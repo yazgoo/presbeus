@@ -1,3 +1,8 @@
+Screenshot
+==========
+
+![screenshot](https://raw.githubusercontent.com/yazgoo/presbeus/master/screenshot.png)
+
 installing
 ==========
 ```shell
