@@ -39,5 +39,5 @@ $ presbeus thread mydeviceid 2
 send an SMS:
 
 ```shell
-presbeus.rb sms mydeviceid phonenumber text for your SMS
+presbeus sms mydeviceid phonenumber text for your SMS
 ```
