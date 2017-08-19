@@ -1,14 +1,14 @@
 Gem::Specification.new do |s|
   s.name        = 'presbeus'
-  s.version     = '0.0.1'
+  s.version     = '0.0.2'
   s.date        = '2017-08-19'
   s.summary     = "command line SMS client for pushbullet"
   s.description = "Allows to view/send pushbullet SMS"
-  s.add_runtime_dependency 'rest-client'
-  s.add_runtime_dependency 'time_ago_in_words'
-  s.add_runtime_dependency 'terminal-table'
-  s.add_runtime_dependency 'highline'
-  s.add_runtime_dependency 'colorize'
+  s.add_runtime_dependency 'rest-client', '~> 0'
+  s.add_runtime_dependency 'time_ago_in_words', '~> 0'
+  s.add_runtime_dependency 'terminal-table', '~> 0'
+  s.add_runtime_dependency 'highline', '~> 0'
+  s.add_runtime_dependency 'colorize', '~> 0'
   s.authors     = ["Olivier Abdesselam"]
   s.executables << "presbeus"
   s.homepage    =
