@@ -7,7 +7,11 @@ configuring
 ===========
 you need to create `~/.config/presbeus.yml` with:
 ```shell
-password_command: /command_line/outputing/your/password
+password_command: /command_line/outputing/your/api/key
+```
+For example, if the api key is `my-api-key` it could be (though it is not secure):
+```shell
+password_command: echo my-api-key
 ```
 using
 =====
