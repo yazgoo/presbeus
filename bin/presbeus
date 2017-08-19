@@ -6,7 +6,10 @@ require 'time_ago_in_words'
 require 'terminal-table'
 require 'highline'
 require 'colorize'
-require "readline"
+require 'readline'
+#require 'websocket-eventmachine-client'
+require 'kontena-websocket-client'
+require 'open-uri'
 
 class Time
 
@@ -18,6 +21,7 @@ class Presbeus
 
   def initialize_arguments
     argument(:help, [], "show this help")  { help }
+    argument(:realtime, [], "handle realtime event stream")  { realtime }
     argument(:shell, [], "run in an interactive shell") { shell }
     argument(:devices, [], "list devices") { puts table devices }
     argument(:pushes, [], "list pushes") { puts table pushes_with_color }
@@ -42,18 +46,52 @@ class Presbeus
     initialize_arguments
     configuration_path = "#{ENV['HOME']}/.config/presbeus.yml"
     configuration = YAML.load_file configuration_path
-    token = `#{configuration['password_command']}`
-    @headers = {"Access-Token" => token, "Content-Type" => "json"}
+    @token = `#{configuration['password_command']}`.chomp
+    @notify_command = configuration['notify_command']
+    @headers = {"Access-Token" => @token, "Content-Type" => "json"}
+    @api_prefix = 'https://api.pushbullet.com/v2/'
+  end
+
+  def realtime_no_reconnect
+    uri = "wss://stream.pushbullet.com/websocket/#{@token}"
+    Kontena::Websocket::Client.connect(uri, ping_timeout: 60) do |client|
+      client.on_pong do |time, delay|
+        p time, delay
+      end
+      client.read do |message|
+        json = JSON.parse(message)
+        type = json["type"]
+        if type != "nop"
+          if type == "tickle"
+            puts(table(pushes_with_color(Time.now.to_i) do |push|
+              `#{@notify_command} "#{push[1]}"` if @notify_command
+            end))
+          end
+        else
+          client.send message # pong
+        end
+      end
+    end
+  end
+
+  def realtime
+    while true
+      begin
+        realtime_no_reconnect
+      rescue Kontena::Websocket::TimeoutError => e
+        puts "timeout #{e}"
+      end
+    end
   end
 
   def post_v2 what, payload
     RestClient.post(
-      'https://api.pushbullet.com/v2/' + what, payload.to_json, @headers)
+      @api_prefix + what, payload.to_json, @headers)
   end
 
   def get_v2 what
     response = RestClient.get(
-      'https://api.pushbullet.com/v2/' + what, @headers)
+      @api_prefix + what, @headers)
     JSON.parse response.body
   end
 
@@ -74,8 +112,10 @@ class Presbeus
     get_v2("permanents/#{device}_thread_#{id}")["thread"]
   end
 
-  def pushes
-    get_v2("pushes")["pushes"].map do |push|
+  def pushes modified_after = nil
+    path = "pushes"
+    path += "?modified_after=#{modified_after}" if modified_after
+    get_v2(path)["pushes"].map do |push|
       [Time.at(push["created"].to_i).ago_in_words, push["body"]]
     end
   end
@@ -151,8 +191,9 @@ class Presbeus
     res 
   end
 
-  def pushes_with_color
-    pushes.reverse.map do |push|
+  def pushes_with_color modified_after = nil
+    pushes(modified_after).reverse.map do |push|
+      yield(push) if block_given?
       ["\n" + push[0] + "\n" + with_color(wrap(push[1], width_2), width_2, :green)]
     end
   end

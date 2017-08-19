@@ -11,11 +11,11 @@ gem install presbeus
 configuring
 ===========
 you need to create `~/.config/presbeus.yml` with:
-```shell
+```yaml
 password_command: /command_line/outputing/your/api/key
 ```
 For example, if the api key is `my-api-key` it could be (though it is not secure):
-```shell
+```yaml
 password_command: echo my-api-key
 ```
 using
@@ -51,4 +51,16 @@ show last active thread
 
 ```shell
 $ presbeus last mydeviceid
+```
+
+To enable desktop notifications, you need to add to `~/.config/presbeus.yml`:
+
+```yaml
+notify_command: notify-send
+```
+
+And then you need to start presbeus in realtime mode:
+
+```shell
+$ presbeus realtime
 ```
