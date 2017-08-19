@@ -1,0 +1,85 @@
+#!/usr/bin/env ruby
+require 'rest-client'
+require 'json'
+require 'yaml'
+require 'awesome_print'
+require 'time_ago_in_words'
+
+class Presbeus
+
+  def initialize
+    configuration_path = "#{ENV['HOME']}/.config/presbeus.yml"
+    configuration = YAML.load_file configuration_path
+    token = `#{configuration['password_command']}`
+    @headers = {"Access-Token" => token}
+  end
+
+  def get_v2 what
+    response = RestClient.get(
+      'https://api.pushbullet.com/v2/' + what, @headers)
+    JSON.parse response.body
+  end
+
+  def devices
+    Hash[get_v2("devices")["devices"].select do |device|
+      device["icon"] == "phone"
+    end.map do |device|
+      [device["iden"], device["model"]]
+    end]
+  end
+
+  def threads iden
+    Hash[get_v2("permanents/#{iden}_threads")["threads"].reverse.map do |thread|
+      [thread["id"], thread["recipients"].map { |r| r["name"] }]
+    end]
+  end
+
+  def thread device, id
+    get_v2("permanents/#{device}_thread_#{id}")["thread"]
+  end
+
+  def user_iden
+    get_v2("users/me")["iden"]
+  end
+
+  def send_sms device, conversation_iden, message
+    RestClient.post(
+      'https://api.pushbullet.com/v2/ephemerals',
+      {
+        push: {
+          conversation_iden: conversation_iden,
+          message: message,
+          package_name: "com.pushbullet.android",
+          source_user_iden: user_iden,
+          target_device_iden: device,
+          type: "messaging_extension_reply"
+        },
+        type: "push"
+      }.to_json,
+      @headers)
+  end
+
+  def run command
+    case command[0]
+    when "devices"
+      devices.each do |iden, name|
+        puts "#{iden}  #{name}"
+      end
+    when "threads"
+      threads(command[1]).each do |id, recipients|
+        puts "#{id}  #{recipients.join(",")}"
+      end
+    when "thread"
+      thread(command[1], command[2]).reverse.each do |message|
+        puts message["direction"] == "incoming" ? ">" : "<"
+        puts "  #{message["body"]}"
+        puts "  #{Time.at(message["timestamp"]).ago_in_words}"
+      end
+    when "sms"
+      send_sms command[1], command[2], command[3..-1].join(" ")
+    end
+  end
+
+end
+
+Presbeus.new.run ARGV
