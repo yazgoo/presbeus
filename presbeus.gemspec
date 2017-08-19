@@ -6,9 +6,9 @@ Gem::Specification.new do |s|
   s.description = "Allows to view/send pushbullet SMS"
   s.add_runtime_dependency 'rest-client', '~> 0'
   s.add_runtime_dependency 'time_ago_in_words', '~> 0'
-  s.add_runtime_dependency 'terminal-table', '~> 0'
   s.add_runtime_dependency 'highline', '~> 0'
   s.add_runtime_dependency 'colorize', '~> 0'
+  s.add_runtime_dependency 'terminal-table'
   s.authors     = ["Olivier Abdesselam"]
   s.executables << "presbeus"
   s.homepage    =
