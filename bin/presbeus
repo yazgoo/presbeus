@@ -3,6 +3,9 @@ require 'rest-client'
 require 'json'
 require 'yaml'
 require 'time_ago_in_words'
+require 'terminal-table'
+require 'highline'
+require 'colorize'
 
 class Presbeus
 
@@ -20,17 +23,16 @@ class Presbeus
   end
 
   def devices
-    Hash[get_v2("devices")["devices"].select do |device|
-      device["icon"] == "phone"
-    end.map do |device|
+    get_v2("devices")["devices"].map do |device|
       [device["iden"], device["model"]]
-    end]
+    end
   end
 
   def threads iden
-    Hash[get_v2("permanents/#{iden}_threads")["threads"].reverse.map do |thread|
-      [thread["id"], thread["recipients"].map { |r| r["name"] }]
-    end]
+    get_v2("permanents/#{iden}_threads")["threads"].reverse.map do |thread|
+      require 'awesome_print'
+      [thread["id"]] + thread["recipients"].map { |r| [r["address"], r["name"]] }.flatten
+    end
   end
 
   def thread device, id
@@ -58,22 +60,48 @@ class Presbeus
       @headers)
   end
 
+  def table rows, config = {}
+    t = Terminal::Table.new config.merge({:rows => rows})
+    t.style = { border_top: false, border_bottom: false, border_y: '' }
+    puts t
+  end
+
+  def wrap s, width
+    s.gsub(/(.{1,#{width}})(\s+|\Z)/, "\\1\n")
+  end
+
+  def with_color string, width, background
+    lines = string.split("\n")
+    lines.map { |line| line.ljust(width).colorize(color: :black, background: background)}.join "\n"
+  end
+
+  def thread_with_two_columns_wrap device, id
+    width = HighLine::SystemExtensions.terminal_size[0] / 2 - 4
+    res = []
+    thread(device, id).reverse.each do |message|
+        text = [wrap(message["body"], width), ""]
+        date = ["\n#{Time.at(message["timestamp"]).ago_in_words}", ""]
+        if message["direction"] != "incoming"
+          text[0] = with_color text[0], width, :white
+          text.reverse!
+          date.reverse!
+        else
+          text[0] = with_color text[0], width, :green
+        end
+        res << date
+        res << text
+    end
+    res 
+  end
+
   def run command
     case command[0]
     when "devices"
-      devices.each do |iden, name|
-        puts "#{iden}  #{name}"
-      end
+      puts table devices
     when "threads"
-      threads(command[1]).each do |id, recipients|
-        puts "#{id}  #{recipients.join(",")}"
-      end
+      puts table threads command[1]
     when "thread"
-      thread(command[1], command[2]).reverse.each do |message|
-        puts message["direction"] == "incoming" ? ">" : "<"
-        puts "  #{message["body"]}"
-        puts "  #{Time.at(message["timestamp"]).ago_in_words}"
-      end
+      puts table thread_with_two_columns_wrap command[1], command[2]
     when "sms"
       send_sms command[1], command[2], command[3..-1].join(" ")
     end
