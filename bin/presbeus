@@ -2,7 +2,6 @@
 require 'rest-client'
 require 'json'
 require 'yaml'
-require 'awesome_print'
 require 'time_ago_in_words'
 
 class Presbeus
