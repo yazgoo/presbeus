@@ -6,14 +6,49 @@ require 'time_ago_in_words'
 require 'terminal-table'
 require 'highline'
 require 'colorize'
+require "readline"
+
+class Time
+
+  alias_method :ago_in_words_no_timezone, :ago_in_words
+
+end
 
 class Presbeus
 
+  def initialize_arguments
+    argument(:help, [], "show this help")  { help }
+    argument(:shell, [], "run in an interactive shell") { shell }
+    argument(:devices, [], "list devices") { puts table devices }
+    argument(:pushes, [], "list pushes") { puts table pushes_with_color }
+    argument(:threads, [:device_id], "show threads for device") do
+      |c| puts table threads c[0] 
+    end
+    argument(:last, [:device_id], "show last thread for device") do |c|
+      puts table last_thread c[0]
+    end
+    argument(:push, [:all], "push note to all devices") do |c|
+      push c.join(" ")
+    end
+    argument(:thread, [:device_id, :thead_id], "show SMS thread") do |c|
+      puts table thread_with_two_columns_wrap c[0], c[1]
+    end
+    argument(:sms, [:device_id, :phone_number, :all], "send SMS") do |c| 
+      send_sms c[0], c[1], c[2..-1].join(" ")
+    end
+  end
+
   def initialize
+    initialize_arguments
     configuration_path = "#{ENV['HOME']}/.config/presbeus.yml"
     configuration = YAML.load_file configuration_path
     token = `#{configuration['password_command']}`
-    @headers = {"Access-Token" => token}
+    @headers = {"Access-Token" => token, "Content-Type" => "json"}
+  end
+
+  def post_v2 what, payload
+    RestClient.post(
+      'https://api.pushbullet.com/v2/' + what, payload.to_json, @headers)
   end
 
   def get_v2 what
@@ -39,31 +74,42 @@ class Presbeus
     get_v2("permanents/#{device}_thread_#{id}")["thread"]
   end
 
+  def pushes
+    get_v2("pushes")["pushes"].map do |push|
+      [Time.at(push["created"].to_i).ago_in_words, push["body"]]
+    end
+  end
+
   def user_iden
     get_v2("users/me")["iden"]
   end
 
+  def push message
+    post_v2 "pushes", {
+      title: "push from presbeus",
+      type: "note",
+      body: message,
+    }
+  end
+
   def send_sms device, conversation_iden, message
-    RestClient.post(
-      'https://api.pushbullet.com/v2/ephemerals',
-      {
-        push: {
-          conversation_iden: conversation_iden,
-          message: message,
-          package_name: "com.pushbullet.android",
-          source_user_iden: user_iden,
-          target_device_iden: device,
-          type: "messaging_extension_reply"
-        },
-        type: "push"
-      }.to_json,
-      @headers)
+    post_v2 "ephemerals", {
+      push: {
+        conversation_iden: conversation_iden,
+        message: message,
+        package_name: "com.pushbullet.android",
+        source_user_iden: user_iden,
+        target_device_iden: device,
+        type: "messaging_extension_reply"
+      },
+      type: "push"
+    }
   end
 
   def table rows, config = {}
     t = Terminal::Table.new config.merge({:rows => rows})
     t.style = { border_top: false, border_bottom: false, border_y: '' }
-    puts t
+    t
   end
 
   def wrap s, width
@@ -75,18 +121,29 @@ class Presbeus
     lines.map { |line| line.ljust(width).colorize(color: :black, background: background)}.join "\n"
   end
 
+  def width
+    HighLine::SystemExtensions.terminal_size[0]
+  end
+
+  def half_width
+    width / 2 - 4
+  end
+
+  def width_2
+    width - 4
+  end
+
   def thread_with_two_columns_wrap device, id
-    width = HighLine::SystemExtensions.terminal_size[0] / 2 - 4
     res = []
     thread(device, id).reverse.each do |message|
-        text = [wrap(message["body"], width), ""]
+        text = [wrap(message["body"], half_width), ""]
         date = ["\n#{Time.at(message["timestamp"]).ago_in_words}", ""]
         if message["direction"] != "incoming"
-          text[0] = with_color text[0], width, :white
+          text[0] = with_color text[0], half_width, :white
           text.reverse!
           date.reverse!
         else
-          text[0] = with_color text[0], width, :green
+          text[0] = with_color text[0], half_width, :green
         end
         res << date
         res << text
@@ -94,17 +151,49 @@ class Presbeus
     res 
   end
 
-  def run command
-    case command[0]
-    when "devices"
-      puts table devices
-    when "threads"
-      puts table threads command[1]
-    when "thread"
-      puts table thread_with_two_columns_wrap command[1], command[2]
-    when "sms"
-      send_sms command[1], command[2], command[3..-1].join(" ")
+  def pushes_with_color
+    pushes.reverse.map do |push|
+      ["\n" + push[0] + "\n" + with_color(wrap(push[1], width_2), width_2, :green)]
     end
+  end
+
+  def last_thread device
+     thread_with_two_columns_wrap device, threads(device).last[0]
+  end
+
+  def argument name, args, description
+    @arguments ||= {}
+    @arguments[name] = {args: args, description: description, block: Proc.new { |c| yield c } }
+  end
+
+  def help
+    a = @arguments.to_a.map do |_|
+       [_[0].to_s, _[1][:args].map { |x| x.to_s }.join(" "), _[1][:description]]
+    end
+    puts table a
+  end
+
+  def shell
+    while buf = Readline.readline("> ", true)
+      run buf.split
+    end
+  end
+
+  def good_syntax? name, command
+    args = @arguments[name][:args]
+    count = args.size + 1
+    args.include?(:all) ? command.size >= count : command.size == count
+  end
+
+  def run command
+    if command.size > 0 
+      name = command[0].to_sym
+      if @arguments.keys.include?(name) and good_syntax?(name, command)
+        @arguments[name][:block].call command[1..-1]
+        return
+      end
+    end
+    help
   end
 
 end

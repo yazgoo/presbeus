@@ -46,3 +46,9 @@ send an SMS:
 ```shell
 presbeus sms mydeviceid phonenumber text for your SMS
 ```
+
+show last active thread
+
+```shell
+$ presbeus last mydeviceid
+```
