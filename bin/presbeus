@@ -46,10 +46,12 @@ class Presbeus
     initialize_arguments
     configuration_path = "#{ENV['HOME']}/.config/presbeus.yml"
     configuration = YAML.load_file configuration_path
+    api_server = 'https://api.pushbullet.com'
+    api_server = configuration["api_server"] if configuration.include? "api_server"
     @token = `#{configuration['password_command']}`.chomp
     @notify_command = configuration['notify_command']
     @headers = {"Access-Token" => @token, "Content-Type" => "json"}
-    @api_prefix = 'https://api.pushbullet.com/v2/'
+    @api_prefix = api_server + '/v2/'
   end
 
   def realtime_no_reconnect
