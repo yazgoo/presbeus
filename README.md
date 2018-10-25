@@ -20,6 +20,10 @@ For example, if the api key is `my-api-key` it could be (though it is not secure
 ```yaml
 password_command: echo my-api-key
 ```
+You can configure a default device (see presbeus devices in `using`)
+```yaml
+default_device: uYourDefaultDeviceID
+```
 using
 =====
 list your devices:

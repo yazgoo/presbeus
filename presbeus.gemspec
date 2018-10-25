@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'presbeus'
-  s.version     = '0.0.9'
+  s.version     = '0.0.11'
   s.date        = '2017-08-19'
   s.summary     = "command line SMS client for pushbullet"
   s.description = "Allows to view/send pushbullet SMS"
@@ -12,6 +12,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'kontena-websocket-client', '~> 0.1'
   s.authors     = ["Olivier Abdesselam"]
   s.executables << "presbeus"
+  s.files = ['lib/presbeus.rb']
   s.homepage    =
     'http://github.com/yazgoo/presbeus'
   s.license       = 'MIT'
