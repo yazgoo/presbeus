@@ -43,7 +43,8 @@ class Presbeus
     end
   end
 
-  def initialize
+  def initialize client = true
+    @client = client
     initialize_arguments
     configuration_path = "#{ENV['HOME']}/.config/presbeus.yml"
     configuration = YAML.load_file configuration_path
@@ -89,14 +90,22 @@ class Presbeus
   end
 
   def post_v2 what, payload
-    RestClient.post(
-      @api_prefix + what, payload.to_json, @headers)
+    args = {url: @api_prefix + what, payload: payload.to_json, headers: @headers}
+    if @client
+      RestClient.post(args[:url], args[:payload], args[:headers])
+    else
+      args
+    end
   end
 
   def get_v2 what
-    response = RestClient.get(
-      @api_prefix + what, @headers)
-    JSON.parse response.body
+    args = {url: @api_prefix + what, headers: @headers}
+    if @client
+      response = RestClient.get(args[:url], args[:headers])
+      JSON.parse response.body
+    else
+      args
+    end
   end
 
   def devices
@@ -105,9 +114,13 @@ class Presbeus
     end
   end
 
+  def self.parse_thread thread
+    [thread["id"]] + thread["recipients"].map { |r| [r["address"], r["name"]] }.flatten
+  end
+
   def threads iden
     get_v2("permanents/#{iden}_threads")["threads"].reverse.map do |thread|
-      [thread["id"]] + thread["recipients"].map { |r| [r["address"], r["name"]] }.flatten
+      parse_thread thread
     end
   end
 
