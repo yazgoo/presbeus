@@ -107,7 +107,6 @@ class Presbeus
 
   def threads iden
     get_v2("permanents/#{iden}_threads")["threads"].reverse.map do |thread|
-      require 'awesome_print'
       [thread["id"]] + thread["recipients"].map { |r| [r["address"], r["name"]] }.flatten
     end
   end
