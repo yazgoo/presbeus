@@ -23,6 +23,7 @@ class Presbeus
   def initialize_arguments
     argument(:help, [], "show this help")  { help }
     argument(:realtime, [], "handle realtime event stream")  { realtime }
+    argument(:realtime_raw, [], "handle realtime event stream")  { @client = false; realtime }
     argument(:shell, [], "run in an interactive shell") { shell }
     argument(:devices, [], "list devices") { puts table devices }
     argument(:pushes, [], "list pushes") { puts table pushes_with_color }
@@ -67,10 +68,14 @@ class Presbeus
         json = JSON.parse(message)
         type = json["type"]
         if type != "nop"
-          if type == "tickle"
-            puts(table(pushes_with_color(Time.now.to_i) do |push|
-              `#{@notify_command} "#{push[1]}"` if @notify_command
-            end))
+          if @client
+            if type == "tickle"
+              puts(table(pushes_with_color(Time.now.to_i) do |push|
+                `#{@notify_command} "#{push[1]}"` if @notify_command
+              end))
+            end
+          else
+            puts message
           end
         else
           client.send message # pong
@@ -80,11 +85,15 @@ class Presbeus
   end
 
   def realtime
+    $stdout.sync = true if !@cient
     while true
       begin
         realtime_no_reconnect
       rescue Kontena::Websocket::TimeoutError => e
-        puts "timeout #{e}"
+        puts "timeout #{e}" if @client
+      rescue Kontena::Websocket::ConnectError => e
+        puts "connect error #{e}" if @client
+        sleep 60
       end
     end
   end
