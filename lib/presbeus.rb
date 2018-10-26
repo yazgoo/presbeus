@@ -153,7 +153,7 @@ class Presbeus
     post_v2 "pushes", {
       title: "push from presbeus",
       type: "note",
-      body: message,
+      body: message.force_encoding("UTF-8"),
     }
   end
 
