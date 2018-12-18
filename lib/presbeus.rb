@@ -28,7 +28,7 @@ class Presbeus
     argument(:devices, [], "list devices") { puts table devices }
     argument(:pushes, [], "list pushes") { puts table pushes_with_color }
     argument(:threads, [:device_id], "show threads for device") do
-      |c| puts table threads c[0] 
+      |c| puts table threads c[0]
     end
     argument(:last, [:device_id], "show last thread for device") do |c|
       puts table last_thread c[0]
@@ -39,7 +39,7 @@ class Presbeus
     argument(:thread, [:device_id, :thead_id], "show SMS thread") do |c|
       puts table thread_with_two_columns_wrap c[0], c[1]
     end
-    argument(:sms, [:device_id, :phone_number, :all], "send SMS") do |c| 
+    argument(:sms, [:device_id, :phone_number, :all], "send SMS") do |c|
       send_sms c[0], c[1], c[2..-1].join(" ")
     end
   end
@@ -129,7 +129,7 @@ class Presbeus
 
   def threads iden
     get_v2("permanents/#{iden}_threads")["threads"].reverse.map do |thread|
-      parse_thread thread
+      Presbeus.parse_thread thread
     end
   end
 
@@ -213,7 +213,7 @@ class Presbeus
         res << date
         res << text
     end
-    res 
+    res
   end
 
   def pushes_with_color modified_after = nil
@@ -252,7 +252,7 @@ class Presbeus
   end
 
   def run command
-    if command.size > 0 
+    if command.size > 0
       name = command[0].to_sym
       if @arguments.keys.include?(name) and good_syntax?(name, command)
         @arguments[name][:block].call command[1..-1]
