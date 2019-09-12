@@ -107,11 +107,19 @@ class Presbeus
     end
   end
 
+	def decrypt payload
+	end
+
   def get_v2 what
     args = {url: @api_prefix + what, headers: @headers}
     if @client
       response = RestClient.get(args[:url], args[:headers])
-      JSON.parse response.body
+      result = JSON.parse response.body
+      if result['encrypted']
+				decrypt result['encrypted']
+			else
+				result
+      end
     else
       args
     end
